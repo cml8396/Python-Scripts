@@ -1,0 +1,254 @@
+class Bug2():
+    """
+    """
+    
+    def __init__(self,start=(0.,0.),stop=(10,10),step=(1.,1.),obstacles=[(0,0)]):
+        """
+        """
+        import numpy as np
+
+        
+        self.start = start
+        self.stop = stop
+        start = np.array(start); stop = np.array(stop)
+        #step = stop-start
+        self.step = step
+        self.goal_line_x = np.arange(start[0],stop[0],step[0])
+        self.goal_line_y = np.arange(start[1],stop[1],step[1])
+        self.goal_line = np.array(zip(self.goal_line_x,self.goal_line_y))
+        #self.min_distance = len(goal_line_x)
+        self.pos = 1        #next position in current waypoint
+        self.obstacle_pos = 0
+        self.waypoint = 1   #waypoint counter
+        self.mode = 'line'
+        self.obstacle_mode = 'none'
+        self.obstacles = obstacles
+        self.current_x = start[0]
+        self.current_y = start[1]
+        self.current_pos = np.array( ( self.current_x, self.current_y ) )
+        self.dead_end = []
+        self.next_move = np.array( ( (0,0) ) )
+        self.history = np.zeros(self.goal_line.shape)
+        
+    #@staticmethod
+    def pos_update(self):
+        """
+        Update the current location
+        """
+        import copy
+        import numpy as np
+        
+        #print 'this point'
+        self.current_x = copy.copy( self.next_move[0] )
+        self.current_y = copy.copy( self.next_move[1] )
+        self.current_pos = np.array( ( self.current_x, self.current_y ) )
+        if self.obstacle_mode == 'circumvent':
+            self.obstacle_pos += 0
+        else:
+            self.pos += 1     
+        #print "here is the update", self.current_pos 
+        
+    def move(self):
+        """
+        """
+        import numpy as np
+        import copy
+        import itertools
+        import sys
+        
+        
+
+        self.history[self.pos-1] = self.current_pos
+        #print self.history, self.pos, self.current_pos
+        
+                        
+        if self.pos+1 > len(self.goal_line):
+            print "all positions complete"
+            self.waypoint += 1
+            #sys.exit()
+
+                        
+        try:
+
+            diff_x = self.goal_line_x[self.pos] - self.current_x
+            diff_y = self.goal_line_y[self.pos] - self.current_y
+            if diff_x>0:
+                self.next_move[0] = self.current_x + self.step[0]
+                #print self.next_move[0]
+            else:
+                self.next_move[0] = self.current_x - self.step[0]
+                #print self.next_move[0]
+            if diff_y>0:
+                self.next_move[1] = self.current_y + self.step[1]
+                #print self.next_move[1]
+            else:
+                self.next_move[1] = self.current_y - self.step[1]
+                #print self.next_move[1]            
+            
+            if self.mode == 'line':
+
+                """
+                if self.goal_line_x[self.pos]==self.current_x and \
+                self.goal_line_y[self.pos]==self.current_y:
+                    self.pos += 1
+                """
+                
+
+
+                #print "Next move", self.next_move   
+                obstacle_check = [(self.next_move==x).all() for x in self.obstacles]
+                #print "Is obstacle?", obstacle_check
+                
+                #Bug2.pos_update(self)
+                
+                if True in obstacle_check:  
+                    #If the next step is in the obstacle list than change to obstacle mode.
+                    self.mode = 'obstacle'
+                    self.obstacle_mode = 'intial'
+                    self.history[self.pos-1] = 0
+                    self.move()
+                else:
+                    #print 'here'
+                    Bug2.pos_update(self)
+
+                                
+            elif self.mode == 'obstacle':
+
+                
+                x_combinations = [self.current_x,self.current_x+self.step[0],self.current_x-self.step[0]]
+                #print "x-combo", x_combinations
+                y_combinations = [self.current_y,self.current_y+self.step[1],self.current_y-self.step[1]]
+                #print "y-combo", y_combinations
+                options = list(itertools.product(x_combinations,y_combinations))
+                #This produces a list of options for next steps.
+                #print "options", options
+
+                reduced_options_1 = list( ( set( options[1:] ) ).difference( set( self.obstacles ) ) )
+                #options[1:] removes the current location from the list. The set operations remove the obstacles from the list
+                #print "reduced_options_1", reduced_options_1
+                
+                reduced_options_2 = list( ( set( reduced_options_1 ) ).difference( set( self.dead_end ) ) )
+                #These operations remove the dead_end points from the list.
+                #print "reduced_options_2", reduced_options_2
+
+                if reduced_options_2 == []:
+                    'If there are no options, then back up and add to dead_end list'
+                    self.next_move = copy.copy( self.history[-1] )
+                    self.dead_end.append( self.current_pos )
+                    Bug2.pos_update(self)
+                
+                #print 'self.next_move', self.next_move    
+                #print self.current_pos
+                v1 = self.next_move - self.current_pos
+                #First create a vector defining the path of motion                    
+                #print v1, self.next_move, self.current_pos
+                
+                "Remove the points leading to a solution that retreats"
+                #print 'v1', v1, 'self.current_pos', self.current_pos
+                plane_dist = v1.dot( self.current_pos )    #Determine distance from origin to new plane
+                #print 'plane_dist', plane_dist
+                pts = copy.copy( np.array( reduced_options_2 ) )  #Change list of reduced options to array
+                #print 'pts',pts
+                pts_from_plane = v1.dot( pts.T )         #Dot product the vector with each point to determine each points distance from origin
+                #print 'pts_from_plane',pts_from_plane
+                pts_above_plane = pts[ pts_from_plane>plane_dist ]#If the point to origin distance is greater than the plane to origin distance, then keep point. 
+                #print "pts_above_plane", pts_above_plane
+                
+                """
+                pts_below_plane = pts[ pts_from_plane>plane_dist ]#If the point to origin distance is greater than the plane to origin distance, then keep point. 
+                #print "pts_above_plane", pts_above_plane                    
+                #pts_o<_plane = pts[ pts_from_plane=0 ]#If the point to origin distance is greater than the plane to origin distance, then keep point. 
+                ##print "pts_above_plane", pts_above_plane
+                """
+                                                                                                                                                                                                                                                                                        
+                if self.obstacle_mode == 'intial':
+                    """
+                    """
+                    
+                    try:     
+                        #print "after try"
+                        #Try to grab the left point  
+                              
+                        v1_3d_axis = np.append(v1,1)
+                        z = np.array( ( (0,0,1) ) )
+                        left_vector = np.cross(z,v1_3d_axis)    #Create a vector to the left of the path
+                        #print "left_vector", left_vector[:2]
+                        plane_dist_left = left_vector[:2].dot(self.current_pos)    #Determine distance from origin to new plane
+                        #print "plane_dist_left", plane_dist_left
+                        pts_above_plane_dist_left = left_vector[:2].dot( pts_above_plane )          #Dot product the vector with each point to determine each points distance from origin
+                        #print "pts_above_plane_dist_left", pts_above_plane_dist_left 
+                        #print "true/false", pts_above_plane_dist_left>plane_dist_left
+
+                        pts_above_plane_left = pts_above_plane[pts_above_plane_dist_left>plane_dist_left] #If the point to origin distance is greater than the plane to origin distance, then keep point. 
+                        #print "pts_above_plane_left", pts_above_plane_left
+                        dist_from_goal = self.next_move - pts_above_plane_left     #Determine the distance of the remaining points to the next point in the sequence.
+                        #print "dist_from_goal", dist_from_goal
+                        dist2pts = np.sqrt( np.sum( dist_from_goal**2,axis=1 ) )
+                        #print "dist2pts", dist2pts #, self.next_move, pts_above_plane_left
+                        self.next_move = np.array( pts_above_plane_left[np.argmin(dist2pts)] )   #The next move is to the point closest the next point.
+                        #print "left?", self.next_move
+
+                        #print "try:pts_above_plane", pts_above_plane
+                    
+                    except:
+                        #Grab the first available point in the list
+                        self.next_move = np.array( pts_above_plane[0] )
+                        #print "except:pts_above_plane", pts_above_plane
+                        
+                    Bug2.pos_update(self)
+                    self.obstacle_mode = 'circumnav'
+                    
+                elif self.obstacle_mode == 'circumnav':
+                    """
+                    Next step here
+                    """
+                    
+                    pts = np.array( reduced_options_2 )
+                    print 'pts', pts
+                    print "pts_above_plane", pts_above_plane, '\n', pts_above_plane.shape
+                    dist2pts = v1.dot( pts_above_plane.T )    #Determine distance of points from goal_line
+                    print "dist2pts", dist2pts
+                    print'heeeerrrreeee'
+                    
+                    dist2goal = self.goal_line[-1] - pts_above_plane
+                    print self.goal_line[-1] - pts_above_plane
+                    
+                    
+                    self.next_move = np.array( pts_above_plane[ np.argmin( dist2pts ) ] )        #The next move is to the point closest the next point.                    
+                    print pts[ np.argmin( dist2pts ) ]
+                    #print "self.next_move", self.next_move
+                    #print "self.goal_line[self.pos]", self.goal_line[self.pos]
+                    #print self.next_move.all() is (np.array( self.goal_line[self.pos])).all()
+                    #print self.next_move is (np.array( self.goal_line[self.pos]))
+                    
+                    #self.pos -= 1
+                    print self.pos
+                    
+                    if self.next_move is np.array( self.goal_line[self.pos]) :
+                        self.mode = 'line'
+                        self.obstacle_mode = 'intial'
+                        #print 'here123', dist2pts, self.next_move, self.goal_line[self.pos], pts, self.current_pos, type(self.goal_line[self.pos]), type(self.next_move), self.next_move.all() == (np.array( self.goal_line[self.pos])).all()
+                    
+                    Bug2.pos_update(self)
+                                        
+        except:
+            print "error"
+            sys.exit()
+
+        
+import matplotlib.pyplot as plt
+import numpy as np
+
+Robot = Bug2(obstacles=[(3,3)])#(2,2),(2,3),(4,2)])
+for x in range(5):
+    print "sequence #", x
+    #print Robot.next_move
+    #print type(Robot.next_move)
+    print Robot.mode
+    print Robot.obstacle_mode
+    Robot.move() 
+    print Robot.current_pos
+
+plt.plot(Robot.history[:,0],Robot.history[:,1])
+plt.scatter(np.array(Robot.obstacles)[:,0],np.array(Robot.obstacles)[:,1])
+plt.grid()
