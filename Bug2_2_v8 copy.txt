@@ -252,3 +252,5 @@ for x in range(5):
 plt.plot(Robot.history[:,0],Robot.history[:,1])
 plt.scatter(np.array(Robot.obstacles)[:,0],np.array(Robot.obstacles)[:,1])
 plt.grid()
+
+#Random Change at the bottom
